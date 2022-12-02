@@ -12,15 +12,19 @@
    bally dw 10
    ballvx dw 2
    ballvy dw 2
-   farx dw 315
+   farx dw 316
    fary dw 200
    score1 dw 0
    score2 dw 0
-   PADLEN dw 8
-   ball_xmax dw 0
-   ball_ymax dw 0
+   PADLEN dw 70
+   ball_xmax dw 5
+   ball_ymax dw 5
    pymax dw 70
    bymax dw 70
+   pitchp1s dw 3043,2280
+   periodp1s dw 2,2
+   pitchbs dw 1000,2280
+   periodbs dw 2,2
 .code
 main proc
    mov ax,@data
@@ -43,6 +47,35 @@ main proc
     int 10h
    endm
 
+   sound macro freq,duration
+		mov al, 182         ; Prepare the speaker for the
+		out 43h, al         ; note.
+
+		mov ax,freq			; Frequency number (in decimal)for middle C.
+		out 42h, al         ; Output low byte.
+		mov al, ah          ; Output high byte.
+		out 42h, al
+
+		in  al, 61h         ; Turn on note (get value from port 61h).
+		or  al, 00000011b   ; Set bits 1 and 0.
+		out 61h, al         ; Send new value.
+
+		mov cx,duration		; Pause for duration of note.
+		mov dx,0fh
+		mov ah,86h			; CX:DX = how long pause is? I'm not sure exactly how it works but it's working
+		int 15h				; Pause for duration of note.
+
+		in  al, 61h         ; Turn off note (get value from
+								;  port 61h).
+		and al, 11111100b   ; Reset bits 1 and 0.
+		out 61h, al         ; Send new value.
+
+		mov cx,01h			;Pause to give the notes some separation
+		mov dx,08h
+		mov ah,86h
+		int 15h
+   endm
+
    ; Calculate the ball position and its effects
    calbll macro
       ; update ball position based on velocity
@@ -52,6 +85,12 @@ main proc
       mov ax,bally
       add ax,ballvy
       mov bally,ax
+      mov ax,ball_xmax
+      add ax,ballvx
+      mov ball_xmax,ax
+      ;mov ax,ball_ymax
+      ;add ax,ballvy
+      ;mov ball_ymax,ax
 
       ; check if the ball will hit the left edge
       ; if it does, jump to x small, if it doesn't, jump to check x big
@@ -75,6 +114,7 @@ main proc
 
          mov ax,ply
          mov bx,bally
+         add bx,ball_ymax
          cmp ax,bx
          jle pupg
          jg p2score
@@ -85,6 +125,7 @@ main proc
       pupg:
          mov ax,ply
          mov bx,bally
+         add bx,ball_ymax
          add ax,PADLEN
          cmp ax,bx
          jge pdowg
@@ -92,6 +133,12 @@ main proc
 
       ; increase bot score, reset ball, check if player won or lost
       p2score:
+         xor bx,bx                 ; clear bx with XOR
+         pbscoresound:
+             sound pitchbs+bx, periodbs+bx ; calls sound macro with offset of arrays
+             add bx,2                  ; move bx 2 bytes foward
+             cmp bx,4                 ; compare bx with 12
+             jl pbscoresound                     ; if less than, run L2 again
          inc score2
          mov ballx,40
          mov bally,12
@@ -101,7 +148,8 @@ main proc
 
       ; player lost
       plose:
-         clrscr
+         mov ax,0002h          ; screen clear operation
+         int 10h               ; BIOS interrupt, look at ax register
          prtStr lose
          jmp exit
 
@@ -150,6 +198,12 @@ main proc
 
       ; increase player score, reset ball, check if bot won or lost
       p1score:
+             xor bx,bx                 ; clear bx with XOR
+         p1scoresound:
+             sound pitchp1s+bx, periodp1s+bx ; calls sound macro with offset of arrays
+             add bx,2                  ; move bx 2 bytes foward
+             cmp bx,4                 ; compare bx with 12
+             jl p1scoresound                     ; if less than, run L2 again
          inc score1
          mov ballx,40
          mov bally,12
@@ -159,7 +213,8 @@ main proc
 
       ; bot lost
       blose:
-         clrscr
+         mov ax,0002h          ; screen clear operation
+         int 10h               ; BIOS interrupt, look at ax register
          prtStr win
          jmp exit
 
@@ -211,8 +266,27 @@ main proc
     mov bh, 0
     mov dx, bally    ; Y
     mov cx, ballx    ; X
-    mov ax, 0C02h  ; AH=0Ch is to write pixel, AL=2 is color green
-    int 10h
+    horizontal:
+        mov ax, 0C02h  ; AH=0Ch is to write pixel, AL=2 is color green
+        int 10h
+
+        ;inc cx
+        ;mov ax,cx
+        ;sub ax,ballx
+        ;cmp ax,ball_xmax
+        ;jng horizontal
+
+        mov cx,ballx
+        inc dx
+
+        mov ax,dx
+        sub ax,bally
+        cmp ax,ball_ymax
+        jng horizontal
+
+     ;   inc cx
+      ;  cmp cx,ball_xmax
+       ; jl horizontal
    endm
       
    drwpl macro
@@ -244,6 +318,13 @@ main proc
    ; ball moves at 2 units vertically per frame so it will not always keep up
    movbot macro
       mov ax,boy
+      cmp ax,0
+      je isminb
+      mov ax,bymax
+      cmp ax,200
+      je ismaxb
+      botlogic:
+      mov ax,boy
       cmp ax,bally
       jl botdown
       dec boy
@@ -252,6 +333,15 @@ main proc
       botdown:
       inc boy
       inc bymax
+      jmp movbote
+      isminb:
+        add boy,2
+        add bymax,2
+        jmp botlogic
+      ismaxb:
+        sub bymax,2
+        sub boy,2
+        jmp botlogic
       movbote:
    endm
 ; r is the run loop, which runs each frame. it draws, has a wait,
@@ -335,9 +425,10 @@ r:
       jmp r
 
    down:
-      mov ax,ply
-      cmp ax,150
+      mov ax,pymax
+      cmp ax,200
       je ismax
+      mov ax,ply
       add ax,2
       add pymax,2
       mov ply,ax
@@ -351,7 +442,8 @@ exit:
    int 21h
 
 exitesc:
-   clrScr
+   mov ax,0002h          ; screen clear operation
+   int 10h               ; BIOS interrupt, look at ax register
    mov ah,4ch
    int 21h
 
