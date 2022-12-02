@@ -4,27 +4,33 @@
 .data
    lose db 'You lose!$'
    win db 'You win!$'
-   ply dw 0
+   ply dw 50
    plx dw 5
-   boy dw 8
+   boy dw 50
    box dw 315
-   ballx dw 10
-   bally dw 10
-   ballvx dw 2
-   ballvy dw 2
-   farx dw 316
+   ballxorg dw 170
+   ballyorg dw 0
+   ballx dw 170
+   bally dw 0
+   ballvx dw 3
+   ballvy dw 3
+   farx dw 305
    fary dw 200
    score1 dw 0
    score2 dw 0
    PADLEN dw 70
    ball_xmax dw 5
    ball_ymax dw 5
+   pxmax dw 10
+   bxmax dw 310
    pymax dw 70
    bymax dw 70
    pitchp1s dw 3043,2280
    periodp1s dw 2,2
    pitchbs dw 1000,2280
    periodbs dw 2,2
+   pitchh dw 4560
+   periodh dw 0
 .code
 main proc
    mov ax,@data
@@ -61,7 +67,7 @@ main proc
 		out 61h, al         ; Send new value.
 
 		mov cx,duration		; Pause for duration of note.
-		mov dx,0fh
+		mov dx,0fffh
 		mov ah,86h			; CX:DX = how long pause is? I'm not sure exactly how it works but it's working
 		int 15h				; Pause for duration of note.
 
@@ -96,7 +102,7 @@ main proc
       ; if it does, jump to x small, if it doesn't, jump to check x big
       chxsmall:
          mov ax,ballvx
-         mov bx,0
+         mov bx,10
          sub bx,ax
          cmp ballx,bx
          jle xsmall
@@ -140,8 +146,12 @@ main proc
              cmp bx,4                 ; compare bx with 12
              jl pbscoresound                     ; if less than, run L2 again
          inc score2
-         mov ballx,5
-         mov bally,12
+         ;mov ballx,5
+         ;mov bally,12
+         mov ax,ballxorg
+         mov ballx,ax
+         mov ax,ballyorg
+         mov bally,ax
          cmp score2,3
          je plose
          jne notplose
@@ -153,11 +163,17 @@ main proc
          prtStr lose
          jmp exit
 
-      ; player didn't lose, continue
-      notplose:
-
       ; ball is between player y and player y + paddle length, so the player hit the ball, continue
       pdowg:
+         xor bx,bx
+         p1hit:
+             sound pitchh+bx, periodh+bx ; calls sound macro with offset of arrays
+             add bx,2                  ; move bx 2 bytes foward
+             cmp bx,2                 ; compare bx with 12
+             jl p1hit 
+
+      ; player didn't lose, continue
+      notplose:   
 
       ; check if the ball will hit the right edge
       ; if it does, jump to x big, if it doesn't, jump to check y small
@@ -206,8 +222,12 @@ main proc
              cmp bx,4                 ; compare bx with 12
              jl p1scoresound                     ; if less than, run L2 again
          inc score1
-         mov ballx,315
-         mov bally,12
+         ;mov ballx,315
+         ;mov bally,12
+         mov ax,ballxorg
+         mov ballx,ax
+         mov ax,ballyorg
+         mov bally,ax
          cmp score1,3
          je blose
          jne notbplose
@@ -219,11 +239,17 @@ main proc
          prtStr win
          jmp exit
 
-      ; bot didn't lose, continue
-      notbplose:
-
       ; ball is between bot y and bot y + paddle length, so the bot hit the ball, continue
       bdowg:
+         xor bx,bx
+         p2hit:
+             sound pitchh+bx, periodh+bx ; calls sound macro with offset of arrays
+             add bx,2                  ; move bx 2 bytes foward
+             cmp bx,2                 ; compare bx with 12
+             jl p2hit   
+
+      ; bot didn't lose, continue
+      notbplose:
 
       ; check if the ball will hit the top edge
       ; if it does, jump to y small, if it doesn't, jump to check y big
@@ -268,84 +294,120 @@ main proc
    ; draw the ball, including a length
    drwball macro
     mov bh, 0       ; set page number
-    mov dx, bally    ; Y (column)
     mov cx, ballx    ; X (line)
-    vertical:
-        mov ax, 0C02h  ; write pixel
-        int 10h
-
-        ; This code "works" but makes the ball grow and then shrink
-        ;inc cx
-        ;mov ax,cx
-        ;sub ax,ballx
-        ;cmp ax,ball_xmax  ; only draw it to max length
-        ;jng vertical
-
-        ;mov cx, ballx    ; X (line)
-
-        inc dx  ; next y
-        mov ax,dx
-        sub ax,bally
-        cmp ax,ball_ymax  ; only draw it to max length
-        jng vertical
+    add cx,5
+    mov ball_xmax,cx
+    sub cx,5
+    
+    horizontal:
+        mov dx, bally    ; Y (column)
+        vertical:
+            mov ax, 0C02h  ; write pixel
+            int 10h
+            inc dx  ; next y
+            mov ax,dx
+            sub ax,bally
+            cmp ax,ball_ymax  ; only draw it to max length
+            jng vertical
+        inc cx
+        cmp cx,ball_xmax
+        jbe horizontal
    endm
 
    ; draw the p1 paddle
    drwpl macro
     mov bh, 0      ; set page number
     mov cx, plx    ; X is fixed for a vertical line
-    mov dx, ply    ; Y to start
-    lengthlinel:
-        mov ax, 0C04h ; write red pixel
-        int 10h
-        inc dx         ; Next Y
-        cmp dx, pymax  ; only draw it to max length
-        jbe lengthlinel
-
+    mov dx,PADLEN
+    add dx,ply
+    mov pymax,dx
+    widthlinel:
+        mov dx, ply    ; Y to start
+        lengthlinel:
+            mov ax, 0C04h ; write red pixel
+            int 10h
+            inc dx         ; Next Y
+            cmp dx, pymax  ; only draw it to max length
+            jbe lengthlinel
+        inc cx ; Next x
+        cmp cx, pxmax
+        jbe widthlinel
    endm
 
    ; draw the p2 paddle
    drwbo macro
     mov bh, 0      ; set page number
     mov cx, box    ; X is fixed for a vertical line
-    mov dx, boy    ; Y to start
-    lengthliner:
-        mov ax, 0C04h ; write red pixel
-        int 10h
-        inc dx         ; Next Y
-        cmp dx, bymax  ; only draw it to max length
-        jbe lengthliner
+    mov dx,PADLEN
+    add dx,boy
+    mov bymax,dx
+
+    widthliner:
+        mov dx, boy    ; Y to start
+        lengthliner:
+            mov ax, 0C04h ; write red pixel
+            int 10h
+            inc dx         ; Next Y
+            cmp dx, bymax  ; only draw it to max length
+            jbe lengthliner
+        dec cx ; Next x
+        cmp cx, bxmax
+        jge widthliner
    endm
 
    ; Ai for the bot, will try and correct itself by moving up or down 1 unit per frame,
    ; ball moves at 2 units vertically per frame so it will not always keep up
    movbot macro
-      mov ax,boy
-      cmp ax,0
-      je isminb
-      mov ax,bymax
-      cmp ax,200
-      je ismaxb
-      botlogic:
-      mov ax,boy
-      cmp ax,bally
-      jl botdown
-      dec boy
-      dec bymax
-      jmp movbote
-      botdown:
-      inc boy
-      inc bymax
-      jmp movbote
-      isminb:
-        add boy,2
-        add bymax,2
-        jmp botlogic
-      ismaxb:
-        sub bymax,2
-        sub boy,2
-        jmp botlogic
-      movbote:
+      ;mov ax,boy
+      ;cmp ax,0
+      ;je isminb
+      ;mov ax,bymax
+      ;cmp ax,170
+      ;je ismaxb
+      ;botlogic:
+      ;mov ax,boy
+      ;cmp ax,bally
+      ;jl botdown
+      ;dec boy
+      ;dec bymax
+      ;jmp movbote
+      ;botdown:
+      ;inc boy
+      ;inc bymax
+      ;jmp movbote
+      ;isminb:
+      ;  add boy,2
+      ;  add bymax,2
+      ;  jmp botlogic
+      ;ismaxb:
+      ;  sub bymax,2
+      ;  sub boy,2
+      ;  jmp botlogic
+      ;movbote:
+
+mov ax,boy
+add ax,35
+cmp ax, bally
+jl incboy
+jg decboy
+je stayboy
+incboy:
+   mov ax,boy
+   add ax,PADLEN
+   cmp ax, 200
+   je stayboy
+   add boy,2
+   add bymax,2
+   jmp stayboy
+decboy:
+   mov ax,boy
+   cmp ax,0
+   je stayboy
+   sub boy,2
+   sub bymax,2
+   ;jmp stayboy
+stayboy:
+
    endm
 ; r is the run loop, which runs each frame. it draws, has a wait,
 ; updates player and ball positions, and handles keyboard input
@@ -364,6 +426,7 @@ r:
 
    ; create a time delay, which uses the concatenation of cx and dx in microseconds in hex,
    ; e.g., 186a0 is 100,000 microseconds, or 0.1 seconds, or 10 fps
+
    ;mov cx,0001h        ;16 fps
    ;mov dx,0e848h
    ;mov cx,0000h        ;30 fps
@@ -372,9 +435,12 @@ r:
    ;mov dx,0a2c2h
    ;mov cx,0000h        ;20 fps
    ;mov dx,0c350h
+   ;mov cx,0001h        ;10 fps
+   ;mov dx,86a0h
+   mov cx,0000h        ;60 fps
+   mov dx,411ah
+
    mov al,0
-   mov cx,0000h         ;10 fps
-   mov dx,86a0h
    mov ah,86h
    int 15h
 
@@ -418,28 +484,32 @@ r:
    ; move the p1 paddle up, but do not allow it to go past the top of screen
    up:
       mov ax,ply
-      cmp ax,0
-      je ismin
-      sub ax,2
-      sub pymax,2
+      sub ax,4
+      sub pymax,4
       mov ply,ax
+      cmp ax,0
+      jle ismin
       jmp r
       ismin:
-        add ax,2
+        ;add ax,4
+        mov ply,0
+        mov pymax,0
       jmp r
 
    ; move the p1 paddle down, but do not allow it to go below bottom of screen
    down:
-      mov ax,pymax
-      cmp ax,200
-      je ismax
       mov ax,ply
-      add ax,2
-      add pymax,2
+      add ax,4
+      add pymax,4
       mov ply,ax
+      ;mov ax,pymax
+      cmp ax,130
+      jge ismax
       jmp r
       ismax:
-        sub ax,2
+        ;sub ax,4
+        mov ply,130
+        mov pymax,130
       jmp r
 
 exit:
