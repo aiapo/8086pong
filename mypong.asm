@@ -12,15 +12,15 @@
    bally dw 10
    ballvx dw 2
    ballvy dw 2
-   farx dw 79
-   fary dw 25
+   farx dw 315
+   fary dw 200
    score1 dw 0
    score2 dw 0
    PADLEN dw 8
    ball_xmax dw 0
    ball_ymax dw 0
-   line_ymax dw 150
-   testvar db 'updating!$'
+   pymax dw 70
+   bymax dw 70
 .code
 main proc
    mov ax,@data
@@ -57,7 +57,7 @@ main proc
       ; if it does, jump to x small, if it doesn't, jump to check x big
       chxsmall:
          mov ax,ballvx
-         mov bx,-1
+         mov bx,0
          sub bx,ax
          cmp ballx,bx
          jle xsmall
@@ -223,7 +223,7 @@ main proc
         mov ax, 0C04h ; AH=0Ch is BIOS.WritePixel, AL=4 is color red
         int 10h
         inc dx         ; Next Y
-        cmp dx, line_ymax
+        cmp dx, pymax
         jbe lengthlinel
 
    endm
@@ -236,7 +236,7 @@ main proc
         mov ax, 0C04h ; AH=0Ch is BIOS.WritePixel, AL=4 is color red
         int 10h
         inc dx         ; Next Y
-        cmp dx, line_ymax
+        cmp dx, bymax
         jbe lengthliner
    endm
 
@@ -247,9 +247,11 @@ main proc
       cmp ax,bally
       jl botdown
       dec boy
+      dec bymax
       jmp movbote
       botdown:
       inc boy
+      inc bymax
       movbote:
    endm
 ; r is the run loop, which runs each frame. it draws, has a wait,
@@ -278,7 +280,7 @@ r:
    ;mov cx,0000h        ;20 fps
    ;mov dx,0c350h
    mov al,0
-   mov cx,0001h         ;10 fps
+   mov cx,0000h         ;10 fps
    mov dx,86a0h
    mov ah,86h
    int 15h
@@ -322,14 +324,26 @@ r:
 
    up:
       mov ax,ply
+      cmp ax,0
+      je ismin
       sub ax,2
+      sub pymax,2
       mov ply,ax
+      jmp r
+      ismin:
+        add ax,2
       jmp r
 
    down:
       mov ax,ply
+      cmp ax,150
+      je ismax
       add ax,2
+      add pymax,2
       mov ply,ax
+      jmp r
+      ismax:
+        sub ax,2
       jmp r
 
 exit:
