@@ -4,19 +4,23 @@
 .data
    lose db 'You lose!$'
    win db 'You win!$'
-   ply db 0
-   plx db 0
-   boy db 8
-   box db 79
-   ballx db 10
-   bally db 10
-   ballvx db 2
-   ballvy db 2
-   farx db 79
-   fary db 25
-   score1 db 0
-   score2 db 0
-   PADLEN db 8
+   ply dw 0
+   plx dw 5
+   boy dw 8
+   box dw 315
+   ballx dw 10
+   bally dw 10
+   ballvx dw 2
+   ballvy dw 2
+   farx dw 79
+   fary dw 25
+   score1 dw 0
+   score2 dw 0
+   PADLEN dw 8
+   ball_xmax dw 0
+   ball_ymax dw 0
+   line_ymax dw 150
+   testvar db 'updating!$'
 .code
 main proc
    mov ax,@data
@@ -29,27 +33,33 @@ main proc
    endm
 
    clrScr macro
-      mov ax,0002h
-      int 10h
+    mov ah,00h
+    mov al,13h
+    int 10h
+
+    mov ah,0bh
+    mov bh,00h
+    mov bl,00h
+    int 10h
    endm
 
    ; Calculate the ball position and its effects
    calbll macro
       ; update ball position based on velocity
-      mov al,ballx
-      add al,ballvx
-      mov ballx,al
-      mov al,bally
-      add al,ballvy
-      mov bally,al
+      mov ax,ballx
+      add ax,ballvx
+      mov ballx,ax
+      mov ax,bally
+      add ax,ballvy
+      mov bally,ax
 
       ; check if the ball will hit the left edge
       ; if it does, jump to x small, if it doesn't, jump to check x big
       chxsmall:
-         mov al,ballvx
-         mov bl,-1
-         sub bl,al
-         cmp ballx,bl
+         mov ax,ballvx
+         mov bx,-1
+         sub bx,ax
+         cmp ballx,bx
          jle xsmall
          jg cxbig
 
@@ -58,14 +68,14 @@ main proc
       ; if it did, player y is greater than ball y, and jump to p2score
       ; if it didn't, player y is less than/equal to ball y, jump to player up good
       xsmall:
-         mov al,ballvx
-         mov bl,-1
-         mul bl
-         mov ballvx,al
+         mov ax,ballvx
+         mov bx,-1
+         mul bx
+         mov ballvx,ax
 
-         mov al,ply
-         mov bl,bally
-         cmp al,bl
+         mov ax,ply
+         mov bx,bally
+         cmp ax,bx
          jle pupg
          jg p2score
 
@@ -73,10 +83,10 @@ main proc
       ; if it did, player y + paddle length is less than ball y, and jump to p2score
       ; if it didn't, pl y + paddle length is greater than/equal to ball y, jump to player down good
       pupg:
-         mov al,ply
-         mov bl,bally
-         add al,PADLEN
-         cmp al,bl
+         mov ax,ply
+         mov bx,bally
+         add ax,PADLEN
+         cmp ax,bx
          jge pdowg
          jl p2score
 
@@ -104,10 +114,10 @@ main proc
       ; check if the ball will hit the right edge
       ; if it does, jump to x big, if it doesn't, jump to check y small
       cxbig:
-         mov al,ballvx
-         mov bl,farx
-         sub bl,al
-         cmp ballx,bl
+         mov ax,ballvx
+         mov bx,farx
+         sub bx,ax
+         cmp ballx,bx
          jge xbig
          jl cysmall
 
@@ -116,14 +126,14 @@ main proc
       ; if it did, bot y is greater than ball y, and jump to pscore
       ; if it didn't, bot y is less than/equal to ball y, jump to bot up good
       xbig:
-         mov al,ballvx
-         mov bl,-1
-         mul bl
-         mov ballvx,al
+         mov ax,ballvx
+         mov bx,-1
+         mul bx
+         mov ballvx,ax
 
-         mov al,boy
-         mov bl,bally
-         cmp al,bl
+         mov ax,boy
+         mov bx,bally
+         cmp ax,bx
          jle bupg
          jg p1score
 
@@ -131,10 +141,10 @@ main proc
       ; if it did, bot y + paddle length is less than ball y, and jump to p1score
       ; if it didn't, bot y + paddle length is greater than/equal to ball y, jump to bot down good
       bupg:
-         mov al,boy
-         mov bl,bally
-         add al,PADLEN
-         cmp al,bl
+         mov ax,boy
+         mov bx,bally
+         add ax,PADLEN
+         cmp ax,bx
          jge bdowg
          jl p1score
 
@@ -162,58 +172,79 @@ main proc
       ; check if the ball will hit the top edge
       ; if it does, jump to y small, if it doesn't, jump to check y big
       cysmall:
-         mov al,ballvy
-         mov bl,-1
-         sub bl,al
-         cmp bally,bl
+         mov ax,ballvy
+         mov bx,-1
+         sub bx,ax
+         cmp bally,bx
          jle ysmall
          jg cybig
 
       ; invert y velocity as it hit the top edge
       ysmall:
-         mov al,ballvy
-         mov bl,-1
-         mul bl
-         mov ballvy,al
+         mov ax,ballvy
+         mov bx,-1
+         mul bx
+         mov ballvy,ax
 
       ; check if the ball will hit the bottom edge
       ; if it does, jump to y big, if it doesn't, jump to finish checking edges
       cybig:
-         mov al,ballvy
-         mov bl,fary
-         sub bl,al
-         cmp bally,bl
+         mov ax,ballvy
+         mov bx,fary
+         sub bx,ax
+         cmp bally,bx
          jge ybig
          jl finedge
 
       ; invert y velocity as it hit the bottom edge
       ybig:
-         mov al,ballvy
-         mov bl,-1
-         mul bl
-         mov ballvy,al
+         mov ax,ballvy
+         mov bx,-1
+         mul bx
+         mov ballvy,ax
 
       ; finish checking edges for ball, so finished calculating ball position and effects
       finedge:
    endm
 
    drwball macro
-
+    mov bh, 0
+    mov dx, bally    ; Y
+    mov cx, ballx    ; X
+    mov ax, 0C02h  ; AH=0Ch is to write pixel, AL=2 is color green
+    int 10h
    endm
       
    drwpl macro
-      
+    mov bh, 0
+    mov cx, plx    ; X is fixed for a vertical line
+    mov dx, ply     ; Y to start
+    lengthlinel:
+        mov ax, 0C04h ; AH=0Ch is BIOS.WritePixel, AL=4 is color red
+        int 10h
+        inc dx         ; Next Y
+        cmp dx, line_ymax
+        jbe lengthlinel
+
    endm
 
    drwbo macro
-      
+    mov bh, 0
+    mov cx, box    ; X is fixed for a vertical line
+    mov dx, boy     ; Y to start
+    lengthliner:
+        mov ax, 0C04h ; AH=0Ch is BIOS.WritePixel, AL=4 is color red
+        int 10h
+        inc dx         ; Next Y
+        cmp dx, line_ymax
+        jbe lengthliner
    endm
 
    ; Ai for the bot, will try and correct itself by moving up or down 1 unit per frame,
    ; ball moves at 2 units vertically per frame so it will not always keep up
    movbot macro
-      mov al,boy
-      cmp al,bally
+      mov ax,boy
+      cmp ax,bally
       jl botdown
       dec boy
       jmp movbote
@@ -221,11 +252,9 @@ main proc
       inc boy
       movbote:
    endm
-
 ; r is the run loop, which runs each frame. it draws, has a wait,
 ; updates player and ball positions, and handles keyboard input
 r:
-
    ; calculate the ball position based on its velocity,
    ; if it touches the edge, bounce,
    ; if it touches player edge, reset and give point to bot,
@@ -292,15 +321,15 @@ r:
    jmp r
 
    up:
-      mov al,ply
-      sub al,2
-      mov ply,al
+      mov ax,ply
+      sub ax,2
+      mov ply,ax
       jmp r
 
    down:
-      mov al,ply
-      add al,2
-      mov ply,al
+      mov ax,ply
+      add ax,2
+      mov ply,ax
       jmp r
 
 exit:
