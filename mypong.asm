@@ -37,14 +37,14 @@ main proc
    endm
 
    clrScr macro
-    mov ah,00h
-    mov al,13h
-    int 10h
+    mov ah,00h          ; set video mode
+    mov al,0dh          ; 16 color graphics
+    int 10h             ; do it now
 
-    mov ah,0bh
-    mov bh,00h
-    mov bl,00h
-    int 10h
+    mov ah,0bh          ; set palette
+    mov bh,00h          ; set background
+    mov bl,00h          ; to black
+    int 10h             ; do it now
    endm
 
    sound macro freq,duration
@@ -265,55 +265,55 @@ main proc
       finedge:
    endm
 
+   ; draw the ball, including a length
    drwball macro
-    mov bh, 0
-    mov dx, bally    ; Y
-    mov cx, ballx    ; X
-    horizontal:
-        mov ax, 0C02h  ; AH=0Ch is to write pixel, AL=2 is color green
+    mov bh, 0       ; set page number
+    mov dx, bally    ; Y (column)
+    mov cx, ballx    ; X (line)
+    vertical:
+        mov ax, 0C02h  ; write pixel
         int 10h
 
+        ; This code "works" but makes the ball grow and then shrink
         ;inc cx
         ;mov ax,cx
         ;sub ax,ballx
-        ;cmp ax,ball_xmax
-        ;jng horizontal
+        ;cmp ax,ball_xmax  ; only draw it to max length
+        ;jng vertical
 
-        mov cx,ballx
-        inc dx
+        ;mov cx, ballx    ; X (line)
 
+        inc dx  ; next y
         mov ax,dx
         sub ax,bally
-        cmp ax,ball_ymax
-        jng horizontal
-
-     ;   inc cx
-      ;  cmp cx,ball_xmax
-       ; jl horizontal
+        cmp ax,ball_ymax  ; only draw it to max length
+        jng vertical
    endm
-      
+
+   ; draw the p1 paddle
    drwpl macro
-    mov bh, 0
+    mov bh, 0      ; set page number
     mov cx, plx    ; X is fixed for a vertical line
-    mov dx, ply     ; Y to start
+    mov dx, ply    ; Y to start
     lengthlinel:
-        mov ax, 0C04h ; AH=0Ch is BIOS.WritePixel, AL=4 is color red
+        mov ax, 0C04h ; write red pixel
         int 10h
         inc dx         ; Next Y
-        cmp dx, pymax
+        cmp dx, pymax  ; only draw it to max length
         jbe lengthlinel
 
    endm
 
+   ; draw the p2 paddle
    drwbo macro
-    mov bh, 0
+    mov bh, 0      ; set page number
     mov cx, box    ; X is fixed for a vertical line
-    mov dx, boy     ; Y to start
+    mov dx, boy    ; Y to start
     lengthliner:
-        mov ax, 0C04h ; AH=0Ch is BIOS.WritePixel, AL=4 is color red
+        mov ax, 0C04h ; write red pixel
         int 10h
         inc dx         ; Next Y
-        cmp dx, bymax
+        cmp dx, bymax  ; only draw it to max length
         jbe lengthliner
    endm
 
@@ -415,6 +415,7 @@ r:
    ; if they did not press a movement key or ESC, then do the run loop again
    jmp r
 
+   ; move the p1 paddle up, but do not allow it to go past the top of screen
    up:
       mov ax,ply
       cmp ax,0
@@ -427,6 +428,7 @@ r:
         add ax,2
       jmp r
 
+   ; move the p1 paddle down, but do not allow it to go below bottom of screen
    down:
       mov ax,pymax
       cmp ax,200
