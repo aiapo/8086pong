@@ -140,7 +140,7 @@ main proc
              cmp bx,4                 ; compare bx with 12
              jl pbscoresound                     ; if less than, run L2 again
          inc score2
-         mov ballx,40
+         mov ballx,5
          mov bally,12
          cmp score2,3
          je plose
@@ -191,6 +191,7 @@ main proc
       bupg:
          mov ax,boy
          mov bx,bally
+         add bx,ball_ymax
          add ax,PADLEN
          cmp ax,bx
          jge bdowg
@@ -205,7 +206,7 @@ main proc
              cmp bx,4                 ; compare bx with 12
              jl p1scoresound                     ; if less than, run L2 again
          inc score1
-         mov ballx,40
+         mov ballx,315
          mov bally,12
          cmp score1,3
          je blose
@@ -247,7 +248,9 @@ main proc
          mov ax,ballvy
          mov bx,fary
          sub bx,ax
-         cmp bally,bx
+         mov cx,ball_ymax
+         add cx,bally
+         cmp cx,bx
          jge ybig
          jl finedge
 
